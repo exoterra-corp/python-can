@@ -1,4 +1,4 @@
 """
 """
 
-from can.interfaces.exoserial.serial_can import ExoSerialBus as Bus
+from can.interfaces.exoserial.exoserial_can import ExoSerialBus as Bus
