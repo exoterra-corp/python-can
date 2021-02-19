@@ -88,6 +88,7 @@ setup(
         "mypy_extensions>=0.4.0,<0.5.0",
         'pywin32;platform_system=="Windows"',
         'msgpack~=1.0.0;platform_system!="Windows"',
+        "crcengine==0.2.0",
     ],
     extras_require=extras_require,
 )

@@ -5,12 +5,10 @@ The interface is a simple implementation that has been used for
 recording CAN traces.
 """
 
-import logging
-import struct
+import logging, struct, crcengine
+from can import BusABC, ExoMessage
 
-from can import BusABC, Message
-
-logger = logging.getLogger("can.serial")
+logger = logging.getLogger("can.exoserial")
 
 try:
     import serial
@@ -60,7 +58,7 @@ class ExoSerialBus(BusABC):
         if not channel:
             raise ValueError("Must specify a serial port.")
 
-        self.channel_info = "Serial interface: " + channel
+        self.channel_info = "ExoSerial interface: " + channel
         self.ser = serial.serial_for_url(
             channel, baudrate=baudrate, timeout=timeout, rtscts=rtscts
         )
@@ -73,9 +71,9 @@ class ExoSerialBus(BusABC):
         """
         self.ser.close()
 
-    def send(self, msg, timeout=None):
+    def send(self, msg:ExoMessage, timeout=None):
         """
-        Send a message over the serial device.
+        Send a message over the serial device in ExoTerra RS-485 Format.
 
         :param can.Message msg:
             Message to send.
@@ -91,24 +89,38 @@ class ExoSerialBus(BusABC):
             used instead.
 
         """
-        try:
-            timestamp = struct.pack("<I", int(msg.timestamp * 1000))
-        except struct.error:
-            raise ValueError("Timestamp is out of range")
-        try:
-            a_id = struct.pack("<I", msg.arbitration_id)
-        except struct.error:
-            raise ValueError("Arbitration Id is out of range")
+        # try:
+        #     timestamp = struct.pack("<I", int(msg.timestamp * 1000))
+        # except struct.error:
+        #     raise ValueError("Timestamp is out of range")
+        # try:
+        #     a_id = struct.pack("<I", msg.arbitration_id)
+        # except struct.error:
+        #     raise ValueError("Arbitration Id is out of range")
+        print("===============CALLING EXOTERRA SEND===============")
         byte_msg = bytearray()
-        byte_msg.append(0xAA)
-        for i in range(0, 4):
-            byte_msg.append(timestamp[i])
-        byte_msg.append(msg.dlc)
-        for i in range(0, 4):
-            byte_msg.append(a_id[i])
-        for i in range(0, msg.dlc):
-            byte_msg.append(msg.data[i])
-        byte_msg.append(0xBB)
+        #generate the 5bit header
+        byte0 = (0x15 & 0x1F)
+        #combine with cob-id
+        byte0 |= (msg.node_cob_id & 0x07) << 5
+        byte1 = (msg.node_cob_id >> 3)
+        #add control bits
+        byte2 = (msg.remote_transmission_request & 0x1) #1 bit
+        byte2 |= (msg.identifier_extension_bit & 0x1) << 1 #1 bit
+        byte2 |= (msg.reserved_bits & 0x2) << 2 #2 bits
+        byte2 |= (msg.data_length & 0x4) << 4 #4bits
+        #append all of the data
+        byte_msg.append(byte0)
+        byte_msg.append(byte1)
+        byte_msg.append(byte2)
+        byte_msg.extend(msg.data)
+        #calc the crc
+        #crcobj = crcengine.new("crc16-ibm")
+        #crc = crcobj.calculate(byte_msg)
+        #append crc
+
+        byte_msg.extend(bytearray(crc))
+
         self.ser.write(byte_msg)
 
     def _recv_internal(self, timeout):
