@@ -8,6 +8,7 @@ from pkg_resources import iter_entry_points
 
 # interface_name => (module, classname)
 BACKENDS = {
+    "exoserial":("can.interfaces.exoserial", "ExoSerialBus"),
     "kvaser": ("can.interfaces.kvaser", "KvaserBus"),
     "socketcan": ("can.interfaces.socketcan", "SocketcanBus"),
     "serial": ("can.interfaces.serial.serial_can", "SerialBus"),
