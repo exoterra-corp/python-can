@@ -8,7 +8,7 @@ class ExoMessage(Message):
                  identifier_extension_bit=0,
                 ):
 
-        self.start_of_frame = (0x15 & 0x1F) #b10101
+        self.start_of_frame = (0xa8) #b10101
         self.node_cob_id:int = node_cob_id #default should be cob-id
         self.remote_transmission_request = remote_transmission_request #1bit
         self.identifier_extension_bit = identifier_extension_bit #1bit

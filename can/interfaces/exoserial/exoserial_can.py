@@ -6,7 +6,7 @@ recording CAN traces.
 """
 
 import logging, struct, crcengine
-from can import BusABC, ExoMessage
+from can import BusABC, ExoMessage, Message
 
 logger = logging.getLogger("can.exoserial")
 
@@ -71,62 +71,40 @@ class ExoSerialBus(BusABC):
         """
         self.ser.close()
 
-    def send(self, msg:ExoMessage, timeout=None):
+    def send(self, msg:Message, timeout=None):
         """
-        Send a message over the serial device in ExoTerra RS-485 Format.
-
+        Takes in a message object and converts it to the ExoTerra RS-485 format, and then sends it
         :param can.Message msg:
             Message to send.
-
-            .. note:: Flags like ``extended_id``, ``is_remote_frame`` and
-                      ``is_error_frame`` will be ignored.
-
-            .. note:: If the timestamp is a float value it will be converted
-                      to an integer.
-
         :param timeout:
-            This parameter will be ignored. The timeout value of the channel is
-            used instead.
-
+            This parameter will be ignored.
         """
-        # try:
-        #     timestamp = struct.pack("<I", int(msg.timestamp * 1000))
-        # except struct.error:
-        #     raise ValueError("Timestamp is out of range")
-        # try:
-        #     a_id = struct.pack("<I", msg.arbitration_id)
-        # except struct.error:
-        #     raise ValueError("Arbitration Id is out of range")
-        print("===============CALLING EXOTERRA SEND===============")
         byte_msg = bytearray()
         #generate the 5bit header
-        byte0 = (0x15 & 0x1F)
-        #combine with cob-id
-        byte0 |= (msg.node_cob_id & 0x07) << 5
-        byte1 = (msg.node_cob_id >> 3)
+        byte0 = (0xa8)
+        #combine with top 3 bits cob-id
+        byte0 |= (msg.arbitration_id & 0x700) >> 8
+        byte1 = (msg.arbitration_id & 0xFF) #add rest of cob id
         #add control bits
-        byte2 = (msg.remote_transmission_request & 0x1) #1 bit
-        byte2 |= (msg.identifier_extension_bit & 0x1) << 1 #1 bit
-        byte2 |= (msg.reserved_bits & 0x2) << 2 #2 bits
-        byte2 |= (msg.data_length & 0x4) << 4 #4bits
+        byte2 = (msg.is_remote_frame & 0x1) << 7 #rtr
+        byte2 |= (msg.is_extended_id & 0x1) << 6 #ide
+        byte2 |= (0 & 0x2) << 4 # reserved bits
+        byte2 |= (8 & 0xF) # data length
         #append all of the data
         byte_msg.append(byte0)
         byte_msg.append(byte1)
         byte_msg.append(byte2)
         byte_msg.extend(msg.data)
-        #calc the crc
-        #crcobj = crcengine.new("crc16-ibm")
-        #crc = crcobj.calculate(byte_msg)
-        #append crc
-
-        byte_msg.extend(bytearray(crc))
-
+        #calc and append the crc
+        crcobj = crcengine.new("crc16-ibm")
+        crc = crcobj.calculate(byte_msg).to_bytes(2, byteorder="little") #might need to be switched to big, not sure yet
+        byte_msg.extend(crc)
+        #sendit!
         self.ser.write(byte_msg)
 
     def _recv_internal(self, timeout):
         """
         Read a message from the serial device.
-
         :param timeout:
 
             .. warning::
@@ -146,30 +124,28 @@ class ExoSerialBus(BusABC):
         try:
             # ser.read can return an empty string
             # or raise a SerialException
-            rx_byte = self.ser.read()
+            rx_bytes = self.ser.read(13)
         except serial.SerialException:
             return None, False
+        header = (rx_bytes[0] & F8)
+        if (header) == 0xa8:
+            #get the cob id
+            cob_id = (rx_bytes[0] & 0x7) << 8 #move the 3bits up to the top
+            cob_id |= (rx_bytes[1] & 0xFF)#append the bottom 8 bits
+            remote_frame = (rx_bytes[2] & 0x80) >> 7
+            extended_id = (rx_bytes[3] & 0x40) >> 6
+            data_length = 4
+            data = rx_bytes[3:11]
 
-        if rx_byte and ord(rx_byte) == 0xAA:
-            s = bytearray(self.ser.read(4))
-            timestamp = (struct.unpack("<I", s))[0]
-            dlc = ord(self.ser.read())
-
-            s = bytearray(self.ser.read(4))
-            arb_id = (struct.unpack("<I", s))[0]
-
-            data = self.ser.read(dlc)
-
-            rxd_byte = ord(self.ser.read())
-            if rxd_byte == 0xBB:
-                # received message data okay
-                msg = Message(
-                    timestamp=timestamp / 1000,
-                    arbitration_id=arb_id,
-                    dlc=dlc,
-                    data=data,
-                )
-                return msg, False
+            # received message data okay
+            msg = Message(
+                timestamp=0,
+                arbitration_id=cob_id,
+                is_remote_frame=remote_frame,
+                is_extended_id=extended_id,
+                data=data,
+            )
+            return msg, False
 
         else:
             return None, False
