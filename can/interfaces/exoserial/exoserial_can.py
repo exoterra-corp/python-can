@@ -5,8 +5,8 @@ The interface is a simple implementation that has been used for
 recording CAN traces.
 """
 
-import logging, struct, crcengine
-from can import BusABC, ExoMessage, Message
+import logging, struct, crcengine, time
+from can import BusABC, Message
 
 logger = logging.getLogger("can.exoserial")
 
@@ -71,6 +71,8 @@ class ExoSerialBus(BusABC):
         """
         self.ser.close()
 
+        #ae 22 08 40 00 22 02 00 00 00 00 8a f8
+
     def send(self, msg:Message, timeout=None):
         """
         Takes in a message object and converts it to the ExoTerra RS-485 format, and then sends it
@@ -100,7 +102,9 @@ class ExoSerialBus(BusABC):
         crc = crcobj.calculate(byte_msg).to_bytes(2, byteorder="little") #might need to be switched to big, not sure yet
         byte_msg.extend(crc)
         #sendit!
+        print("sending: "+str(byte_msg.hex()))
         self.ser.write(byte_msg)
+            #bytes("123456789123",encoding="ascii"))
 
     def _recv_internal(self, timeout):
         """
@@ -127,19 +131,24 @@ class ExoSerialBus(BusABC):
             rx_bytes = self.ser.read(13)
         except serial.SerialException:
             return None, False
-        header = (rx_bytes[0] & F8)
+        header = (rx_bytes[0] & 0xF8)
         if (header) == 0xa8:
             #get the cob id
             cob_id = (rx_bytes[0] & 0x7) << 8 #move the 3bits up to the top
             cob_id |= (rx_bytes[1] & 0xFF)#append the bottom 8 bits
             remote_frame = (rx_bytes[2] & 0x80) >> 7
-            extended_id = (rx_bytes[3] & 0x40) >> 6
-            data_length = 4
+            extended_id = (rx_bytes[2] & 0x40) >> 6
+            data_length = (rx_bytes[2] & 0xF)
             data = rx_bytes[3:11]
+
+            #validate the crc
+            print("")
+
+            # return None, False
 
             # received message data okay
             msg = Message(
-                timestamp=0,
+                timestamp=time.time(),
                 arbitration_id=cob_id,
                 is_remote_frame=remote_frame,
                 is_extended_id=extended_id,
