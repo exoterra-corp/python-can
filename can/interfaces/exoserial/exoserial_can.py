@@ -131,6 +131,9 @@ class ExoSerialBus(BusABC):
             rx_bytes = self.ser.read(13)
         except serial.SerialException:
             return None, False
+        if len(rx_bytes)==0:
+            return None, False
+        print("recv: ", rx_bytes.hex())
         header = (rx_bytes[0] & 0xF8)
         if (header) == 0xa8:
             #get the cob id
@@ -155,8 +158,8 @@ class ExoSerialBus(BusABC):
                 data=data,
             )
             return msg, False
-
         else:
+            print("exploded - returning none")
             return None, False
 
     def fileno(self):
