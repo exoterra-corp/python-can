@@ -5,7 +5,7 @@ The interface is a simple implementation that has been used for
 recording CAN traces.
 """
 
-import logging, struct, crcengine, time
+import logging, struct, crcengine, time, platform
 from can import BusABC, Message
 
 logger = logging.getLogger("can.exoserial")
@@ -163,7 +163,7 @@ class ExoSerialBus(BusABC):
             return None, False
 
     def fileno(self):
-        if hasattr(self.ser, "fileno"):
+        if hasattr(self.ser, "fileno") and not (platform.system() == "Windows"):
             return self.ser.fileno()
         # Return an invalid file descriptor on Windows
         return -1
