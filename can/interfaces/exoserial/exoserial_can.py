@@ -70,10 +70,9 @@ class ExoSerialBus(BusABC):
         Close the serial interface.
         """
         self.ser.close()
-
         #ae 22 08 40 00 22 02 00 00 00 00 8a f8
 
-    def send(self, msg:Message, timeout=None):
+    def send(self, msg:Message, timeout=None, data_size=8):
         """
         Takes in a message object and converts it to the ExoTerra RS-485 format, and then sends it
         :param can.Message msg:
@@ -91,7 +90,7 @@ class ExoSerialBus(BusABC):
         byte2 = (msg.is_remote_frame & 0x1) << 7 #rtr
         byte2 |= (msg.is_extended_id & 0x1) << 6 #ide
         byte2 |= (0 & 0x2) << 4 # reserved bits
-        byte2 |= (8 & 0xF) # data length
+        byte2 |= (data_size & 0xF) # data length
         #append all of the data
         byte_msg.append(byte0)
         byte_msg.append(byte1)
