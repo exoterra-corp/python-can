@@ -5,7 +5,8 @@ The interface is a simple implementation that has been used for
 recording CAN traces.
 """
 
-import logging, struct, crcengine, time, platform, receiver
+import logging, struct, crcengine, time, platform
+from .receiver import *
 from can import BusABC, Message
 
 logger = logging.getLogger("can.exoserial")
@@ -64,7 +65,7 @@ class ExoSerialBus(BusABC):
             channel, baudrate=baudrate, timeout=timeout, rtscts=rtscts
         )
 
-        self.receiver = receiver.Receiver(self.ser)
+        self.receiver = Receiver(self.ser)
 
         super().__init__(channel=channel, *args, **kwargs)
 
@@ -106,7 +107,7 @@ class ExoSerialBus(BusABC):
         crc = crcobj.calculate(byte_msg).to_bytes(2, byteorder="little") #might need to be switched to big, not sure yet
         byte_msg.extend(crc)
         #sendit!
-        print("sending: "+str(byte_msg.hex()))
+        # print("sending: "+str(byte_msg.hex()))
         self.ser.write(byte_msg)
             #bytes("123456789123",encoding="ascii"))
 
@@ -137,7 +138,7 @@ class ExoSerialBus(BusABC):
             return None, False
         if len(rx_bytes)==0:
             return None, False
-        print("recv: ", rx_bytes.hex())
+        # print("recv: ", rx_bytes.hex())
         header = (rx_bytes[0] & 0xF8)
         if (header) == 0xa8:
             #get the cob id
@@ -149,8 +150,6 @@ class ExoSerialBus(BusABC):
             data = rx_bytes[3:11]
 
             #validate the crc
-            print("")
-
             # return None, False
 
             # received message data okay
