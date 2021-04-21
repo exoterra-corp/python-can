@@ -5,7 +5,7 @@ The interface is a simple implementation that has been used for
 recording CAN traces.
 """
 
-import logging, struct, crcengine, time, platform
+import logging, struct, crcengine, time, platform, receiver
 from can import BusABC, Message
 
 logger = logging.getLogger("can.exoserial")
@@ -55,6 +55,7 @@ class ExoSerialBus(BusABC):
             turn hardware handshake (RTS/CTS) on and off
 
         """
+        
         if not channel:
             raise ValueError("Must specify a serial port.")
 
@@ -62,6 +63,8 @@ class ExoSerialBus(BusABC):
         self.ser = serial.serial_for_url(
             channel, baudrate=baudrate, timeout=timeout, rtscts=rtscts
         )
+
+        self.receiver = receiver.Receiver(self.ser)
 
         super().__init__(channel=channel, *args, **kwargs)
 
@@ -127,7 +130,7 @@ class ExoSerialBus(BusABC):
         try:
             # ser.read can return an empty string
             # or raise a SerialException
-            rx_bytes = self.ser.read(13)
+            rx_bytes = self.receiver.q.get() #self.ser.read(13)
         except serial.SerialException:
             return None, False
         if len(rx_bytes)==0:
