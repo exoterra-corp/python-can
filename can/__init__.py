@@ -9,7 +9,7 @@ import logging
 
 from typing import Dict, Any
 
-__version__ = "4.0.2"
+__version__ = "4.0.3"
 
 log = logging.getLogger("can")
 
