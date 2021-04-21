@@ -83,6 +83,8 @@ class ExoSerialBus(BusABC):
         :param timeout:
             This parameter will be ignored.
         """
+        if data_size > 8:
+            data_size = 8 #the max size is 8 bytes
         byte_msg = bytearray()
         #generate the 5bit header
         byte0 = (0xa8)
