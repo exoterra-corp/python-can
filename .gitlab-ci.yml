@@ -1,5 +1,5 @@
 stages:
-  build_win10_whl
+  - build_win10_whl
 
 Windows 10 Build Wheel:
   stage: build_win10_whl
