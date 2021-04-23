@@ -133,7 +133,7 @@ class ExoSerialBus(BusABC):
         try:
             # ser.read can return an empty string
             # or raise a SerialException
-            rx_bytes = self.receiver.q.get() #self.ser.read(13)
+            rx_bytes = self.receiver.q.get() 
         except serial.SerialException:
             return None, False
         if len(rx_bytes)==0:
