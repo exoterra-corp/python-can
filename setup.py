@@ -91,4 +91,5 @@ setup(
         "crcengine==0.2.0",
     ],
     extras_require=extras_require,
+    setup_requires=['wheel'],
 )

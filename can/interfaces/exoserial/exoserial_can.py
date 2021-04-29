@@ -6,6 +6,7 @@ recording CAN traces.
 """
 
 import logging, struct, crcengine, time, platform
+from .receiver import *
 from can import BusABC, Message
 
 logger = logging.getLogger("can.exoserial")
@@ -55,6 +56,7 @@ class ExoSerialBus(BusABC):
             turn hardware handshake (RTS/CTS) on and off
 
         """
+        
         if not channel:
             raise ValueError("Must specify a serial port.")
 
@@ -63,6 +65,8 @@ class ExoSerialBus(BusABC):
             channel, baudrate=baudrate, timeout=timeout, rtscts=rtscts
         )
 
+        self.receiver = Receiver(self.ser)
+
         super().__init__(channel=channel, *args, **kwargs)
 
     def shutdown(self):
@@ -70,10 +74,9 @@ class ExoSerialBus(BusABC):
         Close the serial interface.
         """
         self.ser.close()
-
         #ae 22 08 40 00 22 02 00 00 00 00 8a f8
 
-    def send(self, msg:Message, timeout=None):
+    def send(self, msg:Message, timeout=None, data_size=8):
         """
         Takes in a message object and converts it to the ExoTerra RS-485 format, and then sends it
         :param can.Message msg:
@@ -81,6 +84,8 @@ class ExoSerialBus(BusABC):
         :param timeout:
             This parameter will be ignored.
         """
+        if data_size > 8:
+            data_size = 8 #the max size is 8 bytes
         byte_msg = bytearray()
         #generate the 5bit header
         byte0 = (0xa8)
@@ -91,12 +96,14 @@ class ExoSerialBus(BusABC):
         byte2 = (msg.is_remote_frame & 0x1) << 7 #rtr
         byte2 |= (msg.is_extended_id & 0x1) << 6 #ide
         byte2 |= (0 & 0x2) << 4 # reserved bits
-        byte2 |= (8 & 0xF) # data length
+        byte2 |= (data_size & 0xF) # data length
         #append all of the data
         byte_msg.append(byte0)
         byte_msg.append(byte1)
         byte_msg.append(byte2)
         byte_msg.extend(msg.data)
+        for i in range(data_size - msg.dlc):
+            byte_msg.append(0)
         #calc and append the crc
         crcobj = crcengine.new("crc16-ibm")
         crc = crcobj.calculate(byte_msg).to_bytes(2, byteorder="little") #might need to be switched to big, not sure yet
@@ -128,7 +135,7 @@ class ExoSerialBus(BusABC):
         try:
             # ser.read can return an empty string
             # or raise a SerialException
-            rx_bytes = self.ser.read(13)
+            rx_bytes = self.receiver.q.get() 
         except serial.SerialException:
             return None, False
         if len(rx_bytes)==0:
@@ -145,8 +152,6 @@ class ExoSerialBus(BusABC):
             data = rx_bytes[3:11]
 
             #validate the crc
-            print("")
-
             # return None, False
 
             # received message data okay
