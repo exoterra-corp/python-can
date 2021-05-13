@@ -1,12 +1,12 @@
 stages:
-  - build_win10_whl
+  - build
 
-Windows 10 Build Wheel:
-  stage: build_win10_whl
+#This builds on exobuild1, ubuntu linux 2004 vm
+Build_Wheel:
+  stage: build
   tags:
-   - win10_build_vm
+    - exobuild1
   script:
-    - echo %cd%
     - python setup.py sdist bdist_wheel
     - twine upload --non-interactive -u $WIN10_UPLOAD_USER -p $WIN10_UPLOAD_PASSWORD --repository-url http://192.168.120.41:8080/ dist/*
   artifacts:
@@ -15,5 +15,20 @@ Windows 10 Build Wheel:
     paths:
       - "dist/*.tar.gz"
       - "dist/*.whl"
-  only:
-    - tags
+
+# Windows 10 Build Wheel:
+#   stage: build
+#   tags:
+#    - win10_build_vm
+#   script:
+#     - echo %cd%
+#     - python setup.py sdist bdist_wheel
+#     - twine upload --non-interactive -u $WIN10_UPLOAD_USER -p $WIN10_UPLOAD_PASSWORD --repository-url http://192.168.120.41:8080/ dist/*
+#   artifacts:
+#     untracked: false
+#     expire_in: 180 days
+#     paths:
+#       - "dist/*.tar.gz"
+#       - "dist/*.whl"
+#   only:
+#     - tags
