@@ -6,15 +6,30 @@ messages on a can bus.
 """
 
 import logging
-
+from os import environ
 from typing import Dict, Any
 
-__version__ = "4.0.5"
+VER="4.0.5"
+#look for the ci_cd env vars
+short_sha = environ.get("CI_COMMIT_SHORT_SHA")  
+tag = environ.get("CI_COMMIT_TAG")
+branch_name = environ.get("CI_COMMIT_BRANCH")
+
+#building on tag
+if short_sha is not None and tag is not None:
+    VER = f"{VER}_{tag}_{short_sha}"
+#building on server but not on tag
+elif branch_name is not None:
+    VER = f"{VER}_{branch_name}-dev"
+#building on local machine
+else:
+    VER = f"{VER}-dev"
+print(f"BUILDING: {VER}")
+__version__ = VER
 
 log = logging.getLogger("can")
 
 rc: Dict[str, Any] = dict()
-
 
 class CanError(IOError):
     """Indicates an error with the CAN network.

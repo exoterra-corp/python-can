@@ -2,7 +2,22 @@ stages:
   - build
 
 #This builds on exobuild1, ubuntu linux 2004 vm
-Build_Wheel:
+#doesnt upload for deployment
+Build_Wheel_Develop:
+  stage: build
+  tags:
+    - exobuild1
+  script:
+    - python3 setup.py sdist bdist_wheel
+  artifacts:
+    untracked: false
+    expire_in: 180 days
+    paths:
+      - "dist/*.tar.gz"
+      - "dist/*.whl"
+
+#this will upload on release of a tag
+Build_Wheel_Release:
   stage: build
   tags:
     - exobuild1
@@ -15,6 +30,8 @@ Build_Wheel:
     paths:
       - "dist/*.tar.gz"
       - "dist/*.whl"
+  only:
+    - tags
 
 # Windows 10 Build Wheel:
 #   stage: build
