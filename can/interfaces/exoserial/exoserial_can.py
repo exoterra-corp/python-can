@@ -101,7 +101,7 @@ class ExoSerialBus(BusABC):
         byte_msg.append(byte0)
         byte_msg.append(byte1)
         byte_msg.append(byte2)
-        byte_msg.extend(msg.data)
+        byte_msg.extend(msg.data.zfill(8))
         for i in range(data_size - msg.dlc):
             byte_msg.append(0)
         #calc and append the crc
@@ -109,9 +109,8 @@ class ExoSerialBus(BusABC):
         crc = crcobj.calculate(byte_msg).to_bytes(2, byteorder="little") #might need to be switched to big, not sure yet
         byte_msg.extend(crc)
         #sendit!
-        print("sending: "+str(byte_msg.hex()))
+        # print("sending: "+str(byte_msg.hex()))
         self.ser.write(byte_msg)
-            #bytes("123456789123",encoding="ascii"))
 
     def _recv_internal(self, timeout):
         """
@@ -140,7 +139,7 @@ class ExoSerialBus(BusABC):
             return None, False
         if len(rx_bytes)==0:
             return None, False
-        print("recv: ", rx_bytes.hex())
+        # print("recv: ", rx_bytes.hex())
         header = (rx_bytes[0] & 0xF8)
         if (header) == 0xa8:
             #get the cob id

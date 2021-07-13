@@ -8,7 +8,7 @@ Learn more at https://github.com/hardbyte/python-can/
 
 from __future__ import absolute_import
 
-from os import listdir
+from os import listdir, environ
 from os.path import isfile, join
 import re
 import logging
@@ -16,10 +16,23 @@ from setuptools import setup, find_packages
 
 logging.basicConfig(level=logging.WARNING)
 
-with open("can/__init__.py", "r") as fd:
-    version = re.search(
-        r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]', fd.read(), re.MULTILINE
-    ).group(1)
+VER="4.0.7"
+#look for the ci_cd env vars
+short_sha = environ.get("CI_COMMIT_SHORT_SHA")  
+tag = environ.get("CI_COMMIT_TAG")
+branch_name = environ.get("CI_COMMIT_BRANCH")
+
+#building on tag
+if short_sha is not None and tag is not None:
+    VER = f"{VER}_{tag}_{short_sha}"
+#building on server but not on tag
+elif branch_name is not None:
+    VER = f"{VER}_{branch_name}-dev"
+#building on local machine
+else:
+    VER = f"{VER}-dev"
+print(f"BUILDING: {VER}")
+version = VER
 
 with open("README.rst", "r") as f:
     long_description = f.read()
