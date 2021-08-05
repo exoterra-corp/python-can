@@ -1,14 +1,14 @@
 stages:
-  - build_win10_whl
+  - build_package
 
-Windows 10 Build Wheel:
-  stage: build_win10_whl
+PackageBuild:
+  stage: build_package
   tags:
-   - win10_build_vm
+   - exobuild1
   script:
-    - echo %cd%
+    - pip install twine
     - python setup.py sdist bdist_wheel
-    - twine upload --non-interactive -u $WIN10_UPLOAD_USER -p $WIN10_UPLOAD_PASSWORD --repository-url http://192.168.120.41:8080/ dist/*
+    - TWINE_PASSWORD=${CI_JOB_TOKEN} TWINE_USERNAME=gitlab-ci-token python -m twine upload --repository-url ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi dist/*
   artifacts:
     untracked: false
     expire_in: 180 days
