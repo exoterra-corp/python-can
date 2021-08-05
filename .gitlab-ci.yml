@@ -3,6 +3,7 @@ stages:
 
 PackageBuild:
   stage: build_package
+  image: python:latest
   tags:
    - exobuild1
   script:
