@@ -101,15 +101,18 @@ class ExoSerialBus(BusABC):
         byte_msg.append(byte0)
         byte_msg.append(byte1)
         byte_msg.append(byte2)
-        byte_msg.extend(msg.data.zfill(8))
-        for i in range(data_size - msg.dlc):
-            byte_msg.append(0)
+        #move the msg data to the byte_msg and make sure its 8 bytes
+        msg_data = bytearray(8)
+        for i,v in enumerate(msg.data):
+            if i < 8:
+                msg_data[i] = v
+        byte_msg.extend(msg_data)
         #calc and append the crc
         crcobj = crcengine.new("crc16-ibm")
         crc = crcobj.calculate(byte_msg).to_bytes(2, byteorder="little") #might need to be switched to big, not sure yet
         byte_msg.extend(crc)
         #sendit!
-        # print("sending: "+str(byte_msg.hex()))
+        print(f"sending: {str(byte_msg.hex())} len: {len(byte_msg)}")
         self.ser.write(byte_msg)
 
     def _recv_internal(self, timeout):
