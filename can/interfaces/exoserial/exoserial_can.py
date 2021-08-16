@@ -112,7 +112,7 @@ class ExoSerialBus(BusABC):
         crc = crcobj.calculate(byte_msg).to_bytes(2, byteorder="little") #might need to be switched to big, not sure yet
         byte_msg.extend(crc)
         #sendit!
-        print(f"sending: {str(byte_msg.hex())} len: {len(byte_msg)}")
+        # print(f"sending: {str(byte_msg.hex())} len: {len(byte_msg)}")
         self.ser.write(byte_msg)
 
     def _recv_internal(self, timeout):
