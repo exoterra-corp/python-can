@@ -5,7 +5,10 @@ The interface is a simple implementation that has been used for
 recording CAN traces.
 """
 
-import logging, struct, crcengine, time, platform
+UDP_HOST = "127.0.0.1"
+UDP_PORT = 4000
+
+import logging, struct, crcengine, time, platform, socket
 from .receiver import *
 from can import BusABC, Message
 
@@ -66,6 +69,7 @@ class ExoSerialBus(BusABC):
         )
 
         self.receiver = Receiver(self.ser)
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # UDP
 
         super().__init__(channel=channel, *args, **kwargs)
 
@@ -113,6 +117,10 @@ class ExoSerialBus(BusABC):
         byte_msg.extend(crc)
         #sendit!
         # print(f"sending: {str(byte_msg.hex())} len: {len(byte_msg)}")
+        sock_data = bytearray(9)
+        sock_data.append(0xA)
+        sock_data.extend(byte_msg)
+        self.sock.sendto(sock_data, (UDP_HOST, UDP_PORT))
         self.ser.write(byte_msg)
 
     def _recv_internal(self, timeout):
@@ -154,8 +162,12 @@ class ExoSerialBus(BusABC):
             data = rx_bytes[3:11]
 
             #validate the crc
-            # return None, False
 
+            # return None, False
+            sock_data = bytearray(9)
+            sock_data.append(0xB)
+            sock_data.extend(rx_bytes)
+            self.sock.sendto(sock_data, (UDP_HOST, UDP_PORT))
             # received message data okay
             msg = Message(
                 timestamp=time.time(),
