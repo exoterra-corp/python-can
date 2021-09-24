@@ -117,7 +117,7 @@ class ExoSerialBus(BusABC):
         byte_msg.extend(crc)
         #sendit!
         # print(f"sending: {str(byte_msg.hex())} len: {len(byte_msg)}")
-        sock_data = bytearray(9)
+        sock_data = bytearray()
         sock_data.append(0xA)
         sock_data.extend(byte_msg)
         self.sock.sendto(sock_data, (UDP_HOST, UDP_PORT))
@@ -164,7 +164,7 @@ class ExoSerialBus(BusABC):
             #validate the crc
 
             # return None, False
-            sock_data = bytearray(9)
+            sock_data = bytearray()
             sock_data.append(0xB)
             sock_data.extend(rx_bytes)
             self.sock.sendto(sock_data, (UDP_HOST, UDP_PORT))
