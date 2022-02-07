@@ -11,6 +11,7 @@ UDP_PORT = 4000
 import logging, struct, crcengine, time, platform, socket
 from .receiver import *
 from can import BusABC, Message
+from queue import Queue
 
 logger = logging.getLogger("can.exoserial")
 
@@ -68,6 +69,11 @@ class ExoSerialBus(BusABC):
             channel, baudrate=baudrate, timeout=timeout, rtscts=rtscts
         )
 
+        #wait a second for the serial port to clear
+        time.sleep(0.1)
+        self.ser.reset_input_buffer()
+        self.ser.reset_output_buffer()
+        self.int_q = Queue()
         self.receiver = Receiver(self.ser)
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # UDP
 
@@ -77,8 +83,12 @@ class ExoSerialBus(BusABC):
         """
         Close the serial interface.
         """
+        self.ser.flush()
         self.ser.close()
         #ae 22 08 40 00 22 02 00 00 00 00 8a f8
+
+    def get_int_q(self):
+        return self.int_q
 
     def send(self, msg:Message, timeout=None, data_size=8):
         """
@@ -120,6 +130,7 @@ class ExoSerialBus(BusABC):
         sock_data = bytearray()
         sock_data.append(0xA)
         sock_data.extend(byte_msg)
+        self.int_q.put(sock_data)
         self.sock.sendto(sock_data, (UDP_HOST, UDP_PORT))
         self.ser.write(byte_msg)
 
@@ -160,13 +171,12 @@ class ExoSerialBus(BusABC):
             extended_id = (rx_bytes[2] & 0x40) >> 6
             data_length = (rx_bytes[2] & 0xF)
             data = rx_bytes[3:11]
-
             #validate the crc
-
             # return None, False
             sock_data = bytearray()
             sock_data.append(0xB)
             sock_data.extend(rx_bytes)
+            self.int_q.put(sock_data)
             self.sock.sendto(sock_data, (UDP_HOST, UDP_PORT))
             # received message data okay
             msg = Message(
