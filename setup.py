@@ -16,7 +16,7 @@ from setuptools import setup, find_packages
 
 logging.basicConfig(level=logging.WARNING)
 
-version="4.0.11"
+version="4.0.12"
 # #look for the ci_cd env vars
 # short_sha = environ.get("CI_COMMIT_SHORT_SHA")
 # tag = environ.get("CI_COMMIT_TAG")
