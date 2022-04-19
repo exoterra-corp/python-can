@@ -10,9 +10,8 @@ UDP_PORT = 4000
 
 import logging, struct, crcengine, time, platform, socket
 from .receiver import *
-from can import ThreadSafeBus, Message, BusABC
+from can import BusABC, Message
 from queue import Queue
-from loguru import logger as loguru_logger
 
 logger = logging.getLogger("can.exoserial")
 
@@ -61,20 +60,24 @@ class ExoSerialBus(BusABC):
             turn hardware handshake (RTS/CTS) on and off
 
         """
-
+        
         if not channel:
             raise ValueError("Must specify a serial port.")
-        super().__init__(channel=channel, *args, **kwargs)
 
         self.channel_info = "ExoSerial interface: " + channel
         self.ser = serial.serial_for_url(
             channel, baudrate=baudrate, timeout=timeout, rtscts=rtscts
         )
+
+        #wait a second for the serial port to clear
+        time.sleep(0.1)
         self.ser.reset_input_buffer()
         self.ser.reset_output_buffer()
+        self.int_q = Queue()
         self.receiver = Receiver(self.ser)
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # UDP
 
+        super().__init__(channel=channel, *args, **kwargs)
 
     def shutdown(self):
         """
@@ -83,6 +86,9 @@ class ExoSerialBus(BusABC):
         self.ser.flush()
         self.ser.close()
         #ae 22 08 40 00 22 02 00 00 00 00 8a f8
+
+    def get_int_q(self):
+        return self.int_q
 
     def send(self, msg:Message, timeout=None, data_size=8):
         """
@@ -124,7 +130,7 @@ class ExoSerialBus(BusABC):
         sock_data = bytearray()
         sock_data.append(0xA)
         sock_data.extend(byte_msg)
-        loguru_logger.log("RAW", self.create_send_msg(byte_msg))
+        self.int_q.put(sock_data)
         self.sock.sendto(sock_data, (UDP_HOST, UDP_PORT))
         self.ser.write(byte_msg)
 
@@ -167,10 +173,10 @@ class ExoSerialBus(BusABC):
             data = rx_bytes[3:11]
             #validate the crc
             # return None, False
-            loguru_logger.log("RAW", self.create_recv_msg(rx_bytes))
             sock_data = bytearray()
             sock_data.append(0xB)
             sock_data.extend(rx_bytes)
+            self.int_q.put(sock_data)
             self.sock.sendto(sock_data, (UDP_HOST, UDP_PORT))
             # received message data okay
             msg = Message(
@@ -190,36 +196,6 @@ class ExoSerialBus(BusABC):
             return self.ser.fileno()
         # Return an invalid file descriptor on Windows
         return -1
-
-    def create_send_msg(self, tx_bytes):
-        header = (tx_bytes[0] & 0xF8)
-        msg = ""
-        if (header) == 0xa8:
-            # get the cob id
-            cob_id = (tx_bytes[0] & 0x7) << 8  # move the 3bits up to the top
-            cob_id |= (tx_bytes[1] & 0xFF)  # append the bottom 8 bits
-            remote_frame = (tx_bytes[2] & 0x80) >> 7
-            extended_id = (tx_bytes[2] & 0x40) >> 6
-            data_length = (tx_bytes[2] & 0xF)
-            data = tx_bytes[3:11]
-            msg = f" id:{hex(cob_id)}: dl:{data_length}: d:{data.hex()}"
-        return msg
-
-    def create_recv_msg(self, rx_bytes):
-        header = (rx_bytes[0] & 0xF8)
-        msg = ""
-        if (header) == 0xa8:
-            # get the cob id
-            cob_id = (rx_bytes[0] & 0x7) << 8  # move the 3bits up to the top
-            cob_id |= (rx_bytes[1] & 0xFF)  # append the bottom 8 bits
-            data_length = (rx_bytes[2] & 0xF)
-            data = rx_bytes[3:11]
-            index = struct.unpack("<H", rx_bytes[4:6])[0]
-            subindex = rx_bytes[6]
-            # if index == 0x5001 and subindex == 0x3:
-            #     self.sock.sendto(data, (self.raw_udp_ip, 4001))
-            msg = f" id:{hex(cob_id)}: dl:{data_length}: d:{data.hex()}"
-        return msg
 
     @staticmethod
     def _detect_available_configs():
