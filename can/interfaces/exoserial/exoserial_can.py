@@ -14,6 +14,7 @@ from can import BusABC, Message
 from queue import Queue
 
 logger = logging.getLogger("can.exoserial")
+from loguru import logger as loguru_logger
 
 try:
     import serial
@@ -132,6 +133,11 @@ class ExoSerialBus(BusABC):
         sock_data.extend(byte_msg)
         self.int_q.put(sock_data)
         self.sock.sendto(sock_data, (UDP_HOST, UDP_PORT))
+        try:
+            loguru_logger.log("RAW", self.create_send_msg(byte_msg))
+        except Exception as e:
+            None #ignore if script doesnt use loguru
+
         self.ser.write(byte_msg)
 
     def _recv_internal(self, timeout):
@@ -177,6 +183,10 @@ class ExoSerialBus(BusABC):
             sock_data.append(0xB)
             sock_data.extend(rx_bytes)
             self.int_q.put(sock_data)
+            try:
+                loguru_logger.log("RAW", self.create_send_msg(rx_bytes))
+            except Exception as e:
+                None #ignore if script doesnt use loguru
             self.sock.sendto(sock_data, (UDP_HOST, UDP_PORT))
             # received message data okay
             msg = Message(
@@ -190,6 +200,36 @@ class ExoSerialBus(BusABC):
         else:
             print("exploded - returning none")
             return None, False
+
+    def create_send_msg(self, tx_bytes):
+        header = (tx_bytes[0] & 0xF8)
+        msg = ""
+        if (header) == 0xa8:
+            # get the cob id
+            cob_id = (tx_bytes[0] & 0x7) << 8  # move the 3bits up to the top
+            cob_id |= (tx_bytes[1] & 0xFF)  # append the bottom 8 bits
+            remote_frame = (tx_bytes[2] & 0x80) >> 7
+            extended_id = (tx_bytes[2] & 0x40) >> 6
+            data_length = (tx_bytes[2] & 0xF)
+            data = tx_bytes[3:11]
+            msg = f" id:{hex(cob_id)}: dl:{data_length}: d:{data.hex()}"
+        return msg
+
+    def create_recv_msg(self, rx_bytes):
+        header = (rx_bytes[0] & 0xF8)
+        msg = ""
+        if (header) == 0xa8:
+            # get the cob id
+            cob_id = (rx_bytes[0] & 0x7) << 8  # move the 3bits up to the top
+            cob_id |= (rx_bytes[1] & 0xFF)  # append the bottom 8 bits
+            data_length = (rx_bytes[2] & 0xF)
+            data = rx_bytes[3:11]
+            index = struct.unpack("<H", rx_bytes[4:6])[0]
+            subindex = rx_bytes[6]
+            # if index == 0x5001 and subindex == 0x3:
+            #     self.sock.sendto(data, (self.raw_udp_ip, 4001))
+            msg = f" id:{hex(cob_id)}: dl:{data_length}: d:{data.hex()}"
+        return msg
 
     def fileno(self):
         if hasattr(self.ser, "fileno") and not (platform.system() == "Windows"):
