@@ -35,7 +35,7 @@ class ExoSocketBus(BusABC):
     """
     Enable basic can communication over a serial device with ExoTerras custom packet design.
 
-    .. note:: See :meth:`can.interfaces.serial.ExoSerialBus._recv_internal`
+    .. note:: See :meth:`can.interfaces.serial.ExoSocketBus._recv_internal`
               for some special semantics.
 
     """
