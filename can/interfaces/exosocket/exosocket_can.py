@@ -9,7 +9,7 @@ UDP_HOST = "127.0.0.1"
 UDP_PORT = 8082 
 
 import logging, struct, crcengine, time, platform, socket
-from .receiver import *
+from ..receiver import *
 from can import BusABC, Message
 from queue import Queue
 
