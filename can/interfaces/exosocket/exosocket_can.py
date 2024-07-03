@@ -9,7 +9,7 @@ UDP_HOST = "127.0.0.1"
 UDP_PORT = 8082 
 
 import logging, struct, crcengine, time, platform, socket
-from .receiver import *
+from ..receiver import *
 from can import BusABC, Message
 from queue import Queue
 
@@ -35,7 +35,7 @@ class ExoSocketBus(BusABC):
     """
     Enable basic can communication over a serial device with ExoTerras custom packet design.
 
-    .. note:: See :meth:`can.interfaces.serial.ExoSerialBus._recv_internal`
+    .. note:: See :meth:`can.interfaces.serial.ExoSocketBus._recv_internal`
               for some special semantics.
 
     """
