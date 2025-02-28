@@ -154,7 +154,7 @@ class ExoSocketBus(BusABC):
         rx_bytes = self.sock.recv(13)
 
         header = (rx_bytes[0] & 0xF8)
-        print("header = ", header)
+        
         if (header) == 0xa8:
             #get the cob id
             cob_id = (rx_bytes[0] & 0x7) << 8 #move the 3bits up to the top
@@ -169,7 +169,7 @@ class ExoSocketBus(BusABC):
             sock_data.append(0xB)
             sock_data.extend(rx_bytes)
             # received message data okay
-            print("got here before message")
+            
             msg = Message(
                 timestamp=time.time(),
                 arbitration_id=cob_id,
@@ -177,7 +177,7 @@ class ExoSocketBus(BusABC):
                 is_extended_id=extended_id,
                 data=data,
             )
-            print("got here hooyah!")
+            
             return msg, False
         else:
             print("exploded - returning none")
