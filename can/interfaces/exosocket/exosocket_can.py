@@ -6,7 +6,7 @@ recording CAN traces.
 """
 
 UDP_HOST = "127.0.0.1"
-UDP_PORT = 8082 
+UDP_PORT = 6770 
 
 import logging, struct, crcengine, time, platform, socket
 from ..receiver import *
