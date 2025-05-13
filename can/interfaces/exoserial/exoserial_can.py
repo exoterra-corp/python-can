@@ -12,6 +12,7 @@ import logging, struct, crcengine, time, platform, socket
 from .receiver import *
 from can import BusABC, Message
 from queue import Queue
+from threading import Lock
 
 logger = logging.getLogger("can.exoserial")
 from loguru import logger as loguru_logger
@@ -70,6 +71,8 @@ class ExoSerialBus(BusABC):
             channel, baudrate=baudrate, timeout=timeout, rtscts=rtscts
         )
 
+        self.lock = Lock()
+
         #wait a second for the serial port to clear
         time.sleep(0.1)
         self.ser.reset_input_buffer()
@@ -126,7 +129,9 @@ class ExoSerialBus(BusABC):
         crcobj = crcengine.new("crc16-ibm")
         crc = crcobj.calculate(byte_msg).to_bytes(2, byteorder="little") #might need to be switched to big, not sure yet
         byte_msg.extend(crc)
-        #sendit!
+        
+        # sendit!
+        self.lock.acquire()
         # print(f"sending: {str(byte_msg.hex())} len: {len(byte_msg)}")
         sock_data = bytearray()
         sock_data.append(0xA)
@@ -137,12 +142,14 @@ class ExoSerialBus(BusABC):
             loguru_logger.log("RAW", self.create_send_msg(byte_msg))
         except Exception as e:
             None #ignore if script doesnt use loguru
-        
+
         # send message
         self.ser.write(byte_msg)
 
         # wait for response
         self.receiver.receive(timeout)
+
+        self.lock.release()
 
     def _recv_internal(self, timeout):
         """

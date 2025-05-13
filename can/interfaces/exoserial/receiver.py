@@ -29,7 +29,7 @@ class Receiver():
         msg = bytearray()
 
         start_time = time.monotonic()
-        while start_time - time.monotonic() < timeout:
+        while time.monotonic() - start_time < timeout:
             if self.frontend.isOpen():
                 next_read = 13 - len(frame)
                 msg = self.frontend.read(next_read)
@@ -40,7 +40,9 @@ class Receiver():
                         frame = self.good_frame(frame)
                         # good frame, exit loop
                         if len(frame) == 0:
-                            break
+                            return
+                        
+        print("receive time out")
 
     def good_frame(self, frame):
         """

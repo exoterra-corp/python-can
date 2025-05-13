@@ -34,8 +34,8 @@ version="4.0.15"
 # print(f"BUILDING: {VER}")
 # version = VER
 
-with open("README.rst", "r") as f:
-    long_description = f.read()
+#with open("README.rst", "r") as f:
+long_description = ""
 
 # Dependencies
 extras_require = {
