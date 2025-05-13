@@ -42,7 +42,7 @@ class ExoSerialBus(BusABC):
     """
 
     def __init__(
-        self, channel, baudrate=115200, timeout=0.1, rtscts=False, *args, **kwargs
+        self, channel, baudrate=115200, timeout=0.1, rtscts=False, half_duplex=False, *args, **kwargs
     ):
         """
         :param str channel:
@@ -71,6 +71,7 @@ class ExoSerialBus(BusABC):
             channel, baudrate=baudrate, timeout=timeout, rtscts=rtscts
         )
 
+        self.half_duplex = half_duplex
         self.lock = Lock()
 
         #wait a second for the serial port to clear
@@ -78,7 +79,7 @@ class ExoSerialBus(BusABC):
         self.ser.reset_input_buffer()
         self.ser.reset_output_buffer()
         self.int_q = Queue()
-        self.receiver = Receiver(self.ser)
+        self.receiver = Receiver(self.ser, self.half_duplex)
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # UDP
 
         super().__init__(channel=channel, *args, **kwargs)
@@ -146,8 +147,11 @@ class ExoSerialBus(BusABC):
         # send message
         self.ser.write(byte_msg)
 
-        # wait for response
-        self.receiver.receive(timeout)
+        if self.half_duplex:
+            # wait for response if the message is not NMT
+            function_code = msg.arbitration_id & 0x780
+            if(function_code != 0x0):
+                self.receiver.receive_one(timeout)
 
         self.lock.release()
 

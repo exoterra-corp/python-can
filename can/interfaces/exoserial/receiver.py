@@ -8,7 +8,7 @@ class Receiver():
     to minimize our chances of dropping messages. Currently made to be
     used with exoserial/pyserial front end.
     """
-    def __init__(self, frontend):
+    def __init__(self, frontend, half_duplex=False):
         """
         Initalize the queue and setup access to the serial interface (frontend).
         """
@@ -17,10 +17,12 @@ class Receiver():
         self.frontend = frontend
         self.frontend.reset_input_buffer()
         self.frontend.reset_output_buffer()
-        # self.t = threading.Thread(target=self.receive, daemon=True)  
-        # self.t.start()
+        
+        if not half_duplex:
+            self.t = threading.Thread(target=self.receive, daemon=True)  
+            self.t.start()
 
-    def receive(self, timeout):
+    def receive_one(self, timeout):
         """
         receive, setups the serial port and if its open, reads 13 bytes and if its a good frame move onto the next byte.
         attempts to receive one good message, then returns
@@ -43,6 +45,26 @@ class Receiver():
                             return
                         
         print("receive time out")
+
+    def receive(self):
+        """
+        receive, setups the serial port and if its open, reads 13 bytes and if its a good frame move onto the next byte.
+
+        """
+        frame = bytearray()
+        msg = bytearray()
+        self.frontend.reset_input_buffer()
+        self.frontend.reset_output_buffer()
+        while self.running:
+            if self.frontend.isOpen():
+                next_read = 13 - len(frame)
+                msg = self.frontend.read(next_read)
+                #print("msg len:", len(msg))
+                if len(msg) > 0:
+                    frame = frame + msg
+                    if len(frame) == 13:
+                        frame = self.good_frame(frame)
+
 
     def good_frame(self, frame):
         """
