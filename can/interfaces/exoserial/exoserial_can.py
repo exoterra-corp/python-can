@@ -91,7 +91,7 @@ class ExoSerialBus(BusABC):
     def get_int_q(self):
         return self.int_q
 
-    def send(self, msg:Message, timeout=None, data_size=8):
+    def send(self, msg:Message, timeout=1, data_size=8):
         """
         Takes in a message object and converts it to the ExoTerra RS-485 format, and then sends it
         :param can.Message msg:
@@ -137,8 +137,12 @@ class ExoSerialBus(BusABC):
             loguru_logger.log("RAW", self.create_send_msg(byte_msg))
         except Exception as e:
             None #ignore if script doesnt use loguru
-
+        
+        # send message
         self.ser.write(byte_msg)
+
+        # wait for response
+        self.receiver.receive(timeout)
 
     def _recv_internal(self, timeout):
         """

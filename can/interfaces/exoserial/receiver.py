@@ -1,4 +1,4 @@
-import threading, queue, crcengine, binascii
+import threading, queue, crcengine, binascii, time
 
 class Receiver():
     """
@@ -15,19 +15,21 @@ class Receiver():
         self.q = queue.Queue(5)
         self.running = True
         self.frontend = frontend
-        self.t = threading.Thread(target=self.receive, daemon=True)  
-        self.t.start()
+        self.frontend.reset_input_buffer()
+        self.frontend.reset_output_buffer()
+        # self.t = threading.Thread(target=self.receive, daemon=True)  
+        # self.t.start()
 
-    def receive(self):
+    def receive(self, timeout):
         """
         receive, setups the serial port and if its open, reads 13 bytes and if its a good frame move onto the next byte.
-
+        attempts to receive one good message, then returns
         """
         frame = bytearray()
         msg = bytearray()
-        self.frontend.reset_input_buffer()
-        self.frontend.reset_output_buffer()
-        while self.running:
+
+        start_time = time.monotonic()
+        while start_time - time.monotonic() < timeout:
             if self.frontend.isOpen():
                 next_read = 13 - len(frame)
                 msg = self.frontend.read(next_read)
@@ -36,6 +38,9 @@ class Receiver():
                     frame = frame + msg
                     if len(frame) == 13:
                         frame = self.good_frame(frame)
+                        # good frame, exit loop
+                        if len(frame) == 0:
+                            break
 
     def good_frame(self, frame):
         """
