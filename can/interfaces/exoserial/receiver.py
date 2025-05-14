@@ -53,8 +53,6 @@ class Receiver():
         """
         frame = bytearray()
         msg = bytearray()
-        self.frontend.reset_input_buffer()
-        self.frontend.reset_output_buffer()
         while self.running:
             if self.frontend.isOpen():
                 next_read = 13 - len(frame)
@@ -92,5 +90,6 @@ class Receiver():
         thread_stop, stops the loop.
         """
         self.running = False
+        self.t.join()
 
 

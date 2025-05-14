@@ -42,7 +42,7 @@ class ExoSerialBus(BusABC):
     """
 
     def __init__(
-        self, channel, baudrate=115200, timeout=0.1, rtscts=False, half_duplex=False, *args, **kwargs
+        self, channel, baudrate=115200, timeout=0.1, rtscts=False, *args, **kwargs
     ):
         """
         :param str channel:
@@ -71,7 +71,7 @@ class ExoSerialBus(BusABC):
             channel, baudrate=baudrate, timeout=timeout, rtscts=rtscts
         )
 
-        self.half_duplex = half_duplex
+        self.half_duplex = False
         self.lock = Lock()
 
         #wait a second for the serial port to clear
@@ -84,10 +84,21 @@ class ExoSerialBus(BusABC):
 
         super().__init__(channel=channel, *args, **kwargs)
 
+    def half_duplex_mode(self):
+        """
+        Switch the interface to half_duplex mode. This will clear the receive queue.
+        """
+        self.half_duplex = True
+
+        # create new receiver instance with half-duplex configuration
+        self.receiver.thread_stop()
+        self.receiver = Receiver(self.ser, self.half_duplex)
+
     def shutdown(self):
         """
         Close the serial interface.
         """
+        self.receiver.thread_stop()
         self.ser.flush()
         self.ser.close()
         #ae 22 08 40 00 22 02 00 00 00 00 8a f8
@@ -103,6 +114,7 @@ class ExoSerialBus(BusABC):
         :param timeout:
             This parameter will be ignored.
         """
+
         if data_size > 8:
             data_size = 8 #the max size is 8 bytes
         byte_msg = bytearray()
@@ -174,6 +186,7 @@ class ExoSerialBus(BusABC):
         :rtype:
             Tuple[can.Message, Bool]
         """
+
         try:
             # ser.read can return an empty string
             # or raise a SerialException
