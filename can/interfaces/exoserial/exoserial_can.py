@@ -79,7 +79,7 @@ class ExoSerialBus(BusABC):
         self.ser.reset_input_buffer()
         self.ser.reset_output_buffer()
         self.int_q = Queue()
-        self.receiver = Receiver(self.ser, self.half_duplex)
+        self.receiver = Receiver(self.ser)
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # UDP
 
         super().__init__(channel=channel, *args, **kwargs)
@@ -88,11 +88,9 @@ class ExoSerialBus(BusABC):
         """
         Switch the interface to half_duplex mode. This will clear the receive queue.
         """
+        
         self.half_duplex = True
-
-        # create new receiver instance with half-duplex configuration
-        self.receiver.thread_stop()
-        self.receiver = Receiver(self.ser, self.half_duplex)
+        self.receiver.half_duplex_mode()
 
     def shutdown(self):
         """
@@ -190,7 +188,7 @@ class ExoSerialBus(BusABC):
         try:
             # ser.read can return an empty string
             # or raise a SerialException
-            rx_bytes = self.receiver.q.get() 
+            rx_bytes = self.receiver.q.get()
         except serial.SerialException:
             return None, False
         if len(rx_bytes)==0:

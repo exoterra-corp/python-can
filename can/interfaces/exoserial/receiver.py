@@ -8,7 +8,7 @@ class Receiver():
     to minimize our chances of dropping messages. Currently made to be
     used with exoserial/pyserial front end.
     """
-    def __init__(self, frontend, half_duplex=False):
+    def __init__(self, frontend):
         """
         Initalize the queue and setup access to the serial interface (frontend).
         """
@@ -18,9 +18,8 @@ class Receiver():
         self.frontend.reset_input_buffer()
         self.frontend.reset_output_buffer()
         
-        if not half_duplex:
-            self.t = threading.Thread(target=self.receive, daemon=True)  
-            self.t.start()
+        self.t = threading.Thread(target=self.receive, daemon=True)  
+        self.t.start()
 
     def receive_one(self, timeout):
         """
@@ -84,6 +83,9 @@ class Receiver():
             print("invalid frame: ", binascii.hexlify(byte_array))
             byte_array.pop(0)
         return byte_array
+
+    def half_duplex_mode(self):
+        self.thread_stop()
 
     def thread_stop(self):
         """
