@@ -86,7 +86,7 @@ class ExoSerialBus(BusABC):
 
     def half_duplex_mode(self):
         """
-        Switch the interface to half_duplex mode. This will clear the receive queue.
+        Switch the interface to half_duplex mode.
         """
         
         self.half_duplex = True
@@ -107,6 +107,8 @@ class ExoSerialBus(BusABC):
     def send(self, msg:Message, timeout=1, data_size=8):
         """
         Takes in a message object and converts it to the ExoTerra RS-485 format, and then sends it
+        If operating in half-duplex mode, it will receive one response after sending
+
         :param can.Message msg:
             Message to send.
         :param timeout:
@@ -160,8 +162,12 @@ class ExoSerialBus(BusABC):
         if self.half_duplex:
             # wait for response if the message is not NMT
             function_code = msg.arbitration_id & 0x780
-            if(function_code != 0x0):
-                self.receiver.receive_one(timeout)
+            if function_code != 0x0:
+                if not self.receiver.receive_one(timeout):
+                    try:
+                        loguru_logger.log("RAW", "Receive timed out")
+                    except Exception:
+                        None #ignore if script doesnt use loguru
 
         self.lock.release()
 

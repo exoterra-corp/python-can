@@ -24,7 +24,9 @@ class Receiver():
     def receive_one(self, timeout):
         """
         receive, setups the serial port and if its open, reads 13 bytes and if its a good frame move onto the next byte.
-        attempts to receive one good message, then returns
+        attempts to receive one good message
+
+        returns True if a good message was found, False for a timeout
         """
         frame = bytearray()
         msg = bytearray()
@@ -39,11 +41,10 @@ class Receiver():
                     frame = frame + msg
                     if len(frame) == 13:
                         frame = self.good_frame(frame)
-                        # good frame, exit loop
+                        # good frame
                         if len(frame) == 0:
-                            return
-                        
-        print("receive time out")
+                            return True
+        return False
 
     def receive(self):
         """
