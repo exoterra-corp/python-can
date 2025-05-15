@@ -12,6 +12,7 @@ import logging, struct, crcengine, time, platform, socket
 from .receiver import *
 from can import BusABC, Message
 from queue import Queue
+from threading import Lock
 
 logger = logging.getLogger("can.exoserial")
 from loguru import logger as loguru_logger
@@ -70,6 +71,9 @@ class ExoSerialBus(BusABC):
             channel, baudrate=baudrate, timeout=timeout, rtscts=rtscts
         )
 
+        self.half_duplex = False
+        self.lock = Lock()
+
         #wait a second for the serial port to clear
         time.sleep(0.1)
         self.ser.reset_input_buffer()
@@ -80,10 +84,19 @@ class ExoSerialBus(BusABC):
 
         super().__init__(channel=channel, *args, **kwargs)
 
+    def half_duplex_mode(self):
+        """
+        Switch the interface to half_duplex mode.
+        """
+        
+        self.half_duplex = True
+        self.receiver.half_duplex_mode()
+
     def shutdown(self):
         """
         Close the serial interface.
         """
+        self.receiver.thread_stop()
         self.ser.flush()
         self.ser.close()
         #ae 22 08 40 00 22 02 00 00 00 00 8a f8
@@ -91,14 +104,17 @@ class ExoSerialBus(BusABC):
     def get_int_q(self):
         return self.int_q
 
-    def send(self, msg:Message, timeout=None, data_size=8):
+    def send(self, msg:Message, timeout=1, data_size=8):
         """
         Takes in a message object and converts it to the ExoTerra RS-485 format, and then sends it
+        If operating in half-duplex mode, it will receive one response after sending
+
         :param can.Message msg:
             Message to send.
         :param timeout:
             This parameter will be ignored.
         """
+
         if data_size > 8:
             data_size = 8 #the max size is 8 bytes
         byte_msg = bytearray()
@@ -126,7 +142,9 @@ class ExoSerialBus(BusABC):
         crcobj = crcengine.new("crc16-ibm")
         crc = crcobj.calculate(byte_msg).to_bytes(2, byteorder="little") #might need to be switched to big, not sure yet
         byte_msg.extend(crc)
-        #sendit!
+        
+        # sendit!
+        self.lock.acquire()
         # print(f"sending: {str(byte_msg.hex())} len: {len(byte_msg)}")
         sock_data = bytearray()
         sock_data.append(0xA)
@@ -138,7 +156,20 @@ class ExoSerialBus(BusABC):
         except Exception as e:
             None #ignore if script doesnt use loguru
 
+        # send message
         self.ser.write(byte_msg)
+
+        if self.half_duplex:
+            # wait for response if the message is not NMT
+            function_code = msg.arbitration_id & 0x780
+            if function_code != 0x0:
+                if not self.receiver.receive_one(timeout):
+                    try:
+                        loguru_logger.log("RAW", "Receive timed out")
+                    except Exception:
+                        None #ignore if script doesnt use loguru
+
+        self.lock.release()
 
     def _recv_internal(self, timeout):
         """
@@ -159,10 +190,11 @@ class ExoSerialBus(BusABC):
         :rtype:
             Tuple[can.Message, Bool]
         """
+
         try:
             # ser.read can return an empty string
             # or raise a SerialException
-            rx_bytes = self.receiver.q.get() 
+            rx_bytes = self.receiver.q.get()
         except serial.SerialException:
             return None, False
         if len(rx_bytes)==0:

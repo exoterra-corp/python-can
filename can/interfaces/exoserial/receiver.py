@@ -1,4 +1,4 @@
-import threading, queue, crcengine, binascii
+import threading, queue, crcengine, binascii, time
 
 class Receiver():
     """
@@ -15,8 +15,36 @@ class Receiver():
         self.q = queue.Queue(5)
         self.running = True
         self.frontend = frontend
+        self.frontend.reset_input_buffer()
+        self.frontend.reset_output_buffer()
+        
         self.t = threading.Thread(target=self.receive, daemon=True)  
         self.t.start()
+
+    def receive_one(self, timeout):
+        """
+        receive, setups the serial port and if its open, reads 13 bytes and if its a good frame move onto the next byte.
+        attempts to receive one good message
+
+        returns True if a good message was found, False for a timeout
+        """
+        frame = bytearray()
+        msg = bytearray()
+
+        start_time = time.monotonic()
+        while time.monotonic() - start_time < timeout:
+            if self.frontend.isOpen():
+                next_read = 13 - len(frame)
+                msg = self.frontend.read(next_read)
+                #print("msg len:", len(msg))
+                if len(msg) > 0:
+                    frame = frame + msg
+                    if len(frame) == 13:
+                        frame = self.good_frame(frame)
+                        # good frame
+                        if len(frame) == 0:
+                            return True
+        return False
 
     def receive(self):
         """
@@ -25,8 +53,6 @@ class Receiver():
         """
         frame = bytearray()
         msg = bytearray()
-        self.frontend.reset_input_buffer()
-        self.frontend.reset_output_buffer()
         while self.running:
             if self.frontend.isOpen():
                 next_read = 13 - len(frame)
@@ -36,6 +62,7 @@ class Receiver():
                     frame = frame + msg
                     if len(frame) == 13:
                         frame = self.good_frame(frame)
+
 
     def good_frame(self, frame):
         """
@@ -58,10 +85,14 @@ class Receiver():
             byte_array.pop(0)
         return byte_array
 
+    def half_duplex_mode(self):
+        self.thread_stop()
+
     def thread_stop(self):
         """
         thread_stop, stops the loop.
         """
         self.running = False
+        self.t.join()
 
 
