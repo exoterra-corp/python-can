@@ -9,7 +9,7 @@ UDP_HOST = "127.0.0.1"
 UDP_PORT = 6770
 
 import logging, struct, crcengine, time, platform, socket
-from .receiver import *
+from ..receiver import *
 from can import BusABC, Message
 from queue import Queue
 
@@ -35,7 +35,7 @@ class ExoSocketBus(BusABC):
     """
     Enable basic can communication over a serial device with ExoTerras custom packet design.
 
-    .. note:: See :meth:`can.interfaces.serial.ExoSerialBus._recv_internal`
+    .. note:: See :meth:`can.interfaces.serial.ExoSocketBus._recv_internal`
               for some special semantics.
 
     """
@@ -154,7 +154,7 @@ class ExoSocketBus(BusABC):
         rx_bytes = self.sock.recv(13)
 
         header = (rx_bytes[0] & 0xF8)
-        print("header = ", header)
+        
         if (header) == 0xa8:
             #get the cob id
             cob_id = (rx_bytes[0] & 0x7) << 8 #move the 3bits up to the top
@@ -169,7 +169,7 @@ class ExoSocketBus(BusABC):
             sock_data.append(0xB)
             sock_data.extend(rx_bytes)
             # received message data okay
-            print("got here before message")
+            
             msg = Message(
                 timestamp=time.time(),
                 arbitration_id=cob_id,
@@ -177,7 +177,7 @@ class ExoSocketBus(BusABC):
                 is_extended_id=extended_id,
                 data=data,
             )
-            print("got here hooyah!")
+            
             return msg, False
         else:
             print("exploded - returning none")
