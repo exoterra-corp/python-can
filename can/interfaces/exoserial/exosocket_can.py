@@ -6,7 +6,7 @@ recording CAN traces.
 """
 
 UDP_HOST = "127.0.0.1"
-UDP_PORT = 8082 
+UDP_PORT = 6769 
 
 import logging, struct, crcengine, time, platform, socket
 from .receiver import *
@@ -67,7 +67,7 @@ class ExoSocketBus(BusABC):
 
         self.channel_info = "ExoSerial interface: " + channel
 
-        print("EXOINTERFACE")
+        print(f"EXOINTERFACE {UDP_HOST}:{UDP_PORT}")
         #wait a second for the serial port to clear
         time.sleep(0.1)
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # UDP
