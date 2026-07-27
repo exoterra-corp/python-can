@@ -122,7 +122,10 @@ class ExoSocketBus(BusABC):
         # print(f"sending: {str(byte_msg.hex())} len: {len(byte_msg)}")
         sock_data = bytearray()
         sock_data.extend(byte_msg)
-        self.sock.sendto(sock_data, (UDP_HOST, UDP_PORT))
+        if platform.system() == "Windows":
+            self.sock.send(sock_data)
+        else:
+            self.sock.sendto(sock_data, (UDP_HOST, UDP_PORT))
         try:
             loguru_logger.log("RAW", self.create_send_msg(byte_msg))
         except Exception as e:
