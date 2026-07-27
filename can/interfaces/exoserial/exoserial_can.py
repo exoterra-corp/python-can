@@ -5,6 +5,9 @@ The interface is a simple implementation that has been used for
 recording CAN traces.
 """
 
+MCAST_GROUP = "239.255.67.0" # should be kept in the 239.255.x.x range
+MCAST_PORT = 4000
+
 UDP_HOST = "127.0.0.1"
 UDP_PORT = 4000
 
@@ -80,7 +83,14 @@ class ExoSerialBus(BusABC):
         self.ser.reset_output_buffer()
         self.int_q = Queue()
         self.receiver = Receiver(self.ser)
+        # UDP unicast socket is used for halo8 test utilities (kept for backwards compatibility)
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # UDP
+
+        # multicast socket is used for halo12 and newer test utilities (preferred method)
+        self.mcast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)  # UDP
+        self.mcast_sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1) # allow localhost loopback
+        self.mcast_sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 0) # set TTL to 0 to restrict to local machine
+        self.mcast_sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, socket.inet_aton("127.0.0.1")) # send multicast packets over localhost/loopback
 
         super().__init__(channel=channel, *args, **kwargs)
 
@@ -151,6 +161,7 @@ class ExoSerialBus(BusABC):
         sock_data.extend(byte_msg)
         self.int_q.put(sock_data)
         self.sock.sendto(sock_data, (UDP_HOST, UDP_PORT))
+        self.mcast_sock.sendto(sock_data, (MCAST_GROUP, MCAST_PORT))
         try:
             loguru_logger.log("RAW", self.create_send_msg(byte_msg))
         except Exception as e:
@@ -220,6 +231,7 @@ class ExoSerialBus(BusABC):
             except Exception as e:
                 None #ignore if script doesnt use loguru
             self.sock.sendto(sock_data, (UDP_HOST, UDP_PORT))
+            self.mcast_sock.sendto(sock_data, (MCAST_GROUP, MCAST_PORT))
             # received message data okay
             msg = Message(
                 timestamp=time.time(),
