@@ -81,7 +81,10 @@ class ExoSerialBus(BusABC):
         time.sleep(0.1)
         self.ser.reset_input_buffer()
         self.ser.reset_output_buffer()
-        self.int_q = Queue()
+        # Raw trace queue. Not created until a caller asks for it with get_int_q(): the queue is unbounded,
+        # so filling it with no one reading it leaks about 90 bytes per frame (~20 MB/h at 70 frames/s).
+        self._int_q = None
+        self._int_q_lock = Lock()
         self.receiver = Receiver(self.ser)
         # UDP unicast socket is used for halo8 test utilities (kept for backwards compatibility)
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # UDP
@@ -112,7 +115,17 @@ class ExoSerialBus(BusABC):
         #ae 22 08 40 00 22 02 00 00 00 00 8a f8
 
     def get_int_q(self):
-        return self.int_q
+        """
+        The queue of raw frames sent and received, each as a bytearray (0xA = sent, 0xB = received, then the
+        13 frame bytes). The caller owns it and must keep it emptied: it has no size limit.
+
+        Frames are only queued from the first call to this method on, so a program that never asks for the
+        queue (the test server) does not accumulate frames nobody will read.
+        """
+        with self._int_q_lock:
+            if self._int_q is None:
+                self._int_q = Queue()
+            return self._int_q
 
     def send(self, msg:Message, timeout=1, data_size=8):
         """
@@ -159,7 +172,9 @@ class ExoSerialBus(BusABC):
         sock_data = bytearray()
         sock_data.append(0xA)
         sock_data.extend(byte_msg)
-        self.int_q.put(sock_data)
+        int_q = self._int_q
+        if int_q is not None:
+            int_q.put(sock_data)
         self.sock.sendto(sock_data, (UDP_HOST, UDP_PORT))
         self.mcast_sock.sendto(sock_data, (MCAST_GROUP, MCAST_PORT))
         try:
@@ -225,7 +240,9 @@ class ExoSerialBus(BusABC):
             sock_data = bytearray()
             sock_data.append(0xB)
             sock_data.extend(rx_bytes)
-            self.int_q.put(sock_data)
+            int_q = self._int_q
+            if int_q is not None:
+                int_q.put(sock_data)
             try:
                 loguru_logger.log("RAW", self.create_send_msg(rx_bytes))
             except Exception as e:
